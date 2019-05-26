@@ -1,1 +1,1 @@
-include ':hotspotmanagerdemo', ':hotspotmanager'
+include ':controlunit', ':hotspotmanager'

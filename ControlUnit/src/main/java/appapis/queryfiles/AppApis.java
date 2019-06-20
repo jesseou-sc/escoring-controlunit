@@ -28,6 +28,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.HashMap;
 import java.util.ArrayList;
+
+import android.icu.util.Currency;
 import android.util.Log;
 
 /**
@@ -64,6 +66,71 @@ public class AppApis {
         }
     }
 
+    public String amusements(HashMap qparms) {
+        Log.i("[SC]ControlUnit", "/amusements");
+        try {
+            ArrayList<String> AmusementList = new ArrayList<String>();
+            AmusementList.add("12345");
+            ObjectMapper om = new ObjectMapper();
+            String jsonResponse = om.writeValueAsString(AmusementList);
+            return jsonResponse;
+        }
+
+        catch(Exception ex)
+        {
+            return ex.getMessage();
+        }
+
+
+    }
+
+
+    public String identify(HashMap qparms) {
+        Log.i("[SC]ControlUnit", "/identify?id={id}");
+
+        int returnCode = 0;
+
+        try
+        {
+
+            if(qparms!=null)
+            {
+                String CurrSensorID  = qparms.get("id") + "";
+                 returnCode = TinyWebServer.sc_controller.IdentifySensor(CurrSensorID);
+            }
+
+            if (returnCode ==0)
+            {
+
+                return "IDENTIFY SUCCESS";
+            }
+
+            else
+            {
+                return "IDENTFIY FAIL";
+            }
+        }
+
+        catch(Exception ex)
+        {
+            return ex.getMessage();
+        }
+
+
+
+    }
+
+    public String configuration(HashMap qparms)
+    {
+    Log.i("[SC]ControlUnit", "/configuration");
+
+        String p="";
+        if(qparms!=null){
+            p=qparms.get("_POST")+"";
+        }
+
+        return p;
+    }
 
     public String helloworld(HashMap qparms){
         //demo of simple html webpage from controller method

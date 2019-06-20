@@ -59,11 +59,14 @@ public class SCControlUnitController implements  ISCControlUnitController
     {
         Log.i("[SC]APP", "CU::IdentifySensor() "+SensorID);
         BluetoothMetadata metadata = _internalGattMap.get(SensorID);
-        Log.i("[SC]APP", "CU::IdentifySensor() metadata: "+metadata.toString());
+
         if (metadata == null)
         {
             return -1;
         }
+
+        Log.i("[SC]APP", "CU::IdentifySensor() metadata: "+metadata.toString());
+
         BluetoothGatt gatt = metadata.getBluetoothGatt();
         BluetoothGattService bluetoothService = metadata.getBluetoothService();
         BluetoothGattCharacteristic scoringWriteCharacteristic = bluetoothService.getCharacteristic(UUID.fromString("6E400002-B5A3-F393-E0A9-E50E24DCBEEF"));
@@ -95,6 +98,24 @@ public class SCControlUnitController implements  ISCControlUnitController
         }
 
         return sensorValues;
+    }
+
+    public boolean ContainsSensor(String SensorID)
+    {
+        return _internalGattMap.containsKey(SensorID);
+    }
+
+    public int RemoveSensor(String SensorID)
+    {
+        Log.i("[SC]APP", "CU::ContainsSensor() "+SensorID);
+
+        if (_internalGattMap.containsKey(SensorID))
+        {
+            _internalGattMap.remove(SensorID);
+            return 0;
+        }
+
+        return 1;
     }
 }
 

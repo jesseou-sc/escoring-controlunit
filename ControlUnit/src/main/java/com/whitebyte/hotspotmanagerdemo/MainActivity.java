@@ -61,6 +61,9 @@ import com.smartcarnival.controllers.BluetoothMetadata;
 import java.util.List;
 import java.util.UUID;
 
+import android.net.wifi.WifiManager;
+import android.net.wifi.WifiInfo;
+
 public class MainActivity extends Activity
 {
     TextView textView1;
@@ -80,6 +83,7 @@ public class MainActivity extends Activity
 
     private void InitBT()
     {
+        //to do : request storage permission  too
 
         if (ContextCompat.checkSelfPermission(this,
                 permission.ACCESS_FINE_LOCATION)
@@ -87,7 +91,7 @@ public class MainActivity extends Activity
 
             // Permission is not granted
             // Should we show an explanation?
-            if (ActivityCompat.shouldShowRequestPermissionRationale(this,
+            if (ActivityCompat.shouldShowRequestPermissionRationale (this,
                     permission.ACCESS_FINE_LOCATION)) {
                 // Sroid.Manifest.how an explanation to the user *asynchronously* -- don't block
                 // this thread waiting for the user's response! After the user
@@ -95,7 +99,7 @@ public class MainActivity extends Activity
             } else {
                 // No explanation needed; request the permission
                 ActivityCompat.requestPermissions(this,
-                        new String[]{permission.ACCESS_FINE_LOCATION},
+                        new String[]{permission.ACCESS_FINE_LOCATION, permission.READ_EXTERNAL_STORAGE},
                         0);
 
                 // MY_PERMISSIONS_REQUEST_READ_CONTACTS is an
@@ -116,6 +120,7 @@ public class MainActivity extends Activity
 
         mHandler = new Handler();
     }
+
 
     /**
      * Called when the activity is first created.
@@ -139,9 +144,26 @@ public class MainActivity extends Activity
         textView1.setText("");
         textView1.append("Staring SC Web Server...\n\n");
 
+
+        WifiManager wifiMan = (WifiManager) this.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+        WifiInfo wifiInf = wifiMan.getConnectionInfo();
+        int ipAddress = wifiInf.getIpAddress();
+        String ip = String.format("%d.%d.%d.%d", (ipAddress & 0xff),(ipAddress >> 8 & 0xff),(ipAddress >> 16 & 0xff),(ipAddress >> 24 & 0xff));
+
+
+        if (ip == "" || ip == null)
+        {
+            textView1.append("Could not get Server IP:.."+ip+"\n\n");
+        }
+
+        else
+        {
+            textView1.append("Server IP:.."+ip+"\n\n");
+        }
+
         try
         {
-            TinyWebServer.startServer("10.231.1.111", 9000, "/");
+            TinyWebServer.startServer(ip, 9000, "/sdcard/test/");
             _controllerInternal = (SCControlUnitController)TinyWebServer.sc_controller;
 
             textView1.append("Init Bluetooth()...\n\n");
@@ -205,32 +227,56 @@ public class MainActivity extends Activity
 
     public void connectToDevice(BluetoothDevice device)
     {
-      //  Log.i("[SC]APP", "[SC] - connectToDevice() found device: "+device.getName()+ " "+device.getAddress());
+        if (device == null)
+            return;
+
+        String DeviceName = device.getName();
+        String DeviceAdr = device.getAddress();
+        String DeviceID = DeviceName+"_"+DeviceAdr;
+
+        if (DeviceName == null || DeviceAdr==null || !DeviceName.contains("Touchdown"))
+        {
+            return;
+        }
+
+        if (_controllerInternal.ContainsSensor(DeviceID))
+        {
+            Log.i("[SC]APP", "[SC] - connectToDevice() device: " + DeviceID + " already connected, skipping");
+        }
+
+        else
+        {
+            Log.i("[SC]APP", "[SC] - connectToDevice() new device found: " + DeviceID );
+        }
 
         try
         {
-            String DeviceName = device.getName();
-            String DeviceAdr = device.getAddress();
-            //todo: validate name against known prefix
-            if (DeviceName != null && DeviceAdr != "")
+            Log.i("[SC]APP", "[SC] - Connecting to ''"+DeviceID+ "'...");
+            textView1.append("[SC] - Connecting to ''"+DeviceID+ "'...");
+
+            //stop scan
+            // scanLeDevice(false);
+
+            mGatt = device.connectGatt(this, true, gattCallback);
+            TinyWebServer.sc_controller.AddSensor(DeviceID);
+
+            //stop scan
+            // scanLeDevice(false);
+
+            /*if (mGatt == null && device.getName().contains("Touchdown"))
             {
 
-                if (mGatt == null && device.getName().contains("Touchdown"))
-                {
+                Log.i("[SC]APP", "[SC] - Connecting to ''"+DeviceName+ "'...");
+                textView1.append("[SC] - Connecting to ''"+DeviceName+ "'...");
 
+                TinyWebServer.sc_controller.AddSensor(DeviceID);
 
-                    Log.i("[SC]APP", "[SC] - Connecting to ''"+device.getName()+ "'...");
-                    textView1.append("[SC] - Connecting to ''"+device.getName()+ "'...");
+                //stop scan
+                // scanLeDevice(false);
 
-                    TinyWebServer.sc_controller.AddSensor(device.getName()+"_"+device.getAddress());
+                mGatt = device.connectGatt(this, false, gattCallback);
 
-                    //stop scan
-                    scanLeDevice(false);
-
-                    mGatt = device.connectGatt(this, false, gattCallback);
-
-                }
-            }
+            }*/
         }
 
         catch (Exception ex)
@@ -244,13 +290,16 @@ public class MainActivity extends Activity
         @Override
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState)
         {
+            String DeviceID = gatt.getDevice().getName()+"_"+gatt.getDevice().getAddress();
             switch (newState) {
                 case BluetoothProfile.STATE_CONNECTED:
-                    Log.i("[SC]APP", "[SC] - Device CONNECTED!");
+                    Log.i("[SC]APP", "[SC] - Device "+DeviceID+" CONNECTED!");
                     gatt.discoverServices();
                     break;
                 case BluetoothProfile.STATE_DISCONNECTED:
-                    Log.i("[SC]APP", "[SC] - Device DISCONNECTED");
+                    Log.i("[SC]APP", "[SC] - Device "+DeviceID+" DISCONNECTED");
+                    _controllerInternal.RemoveSensor(DeviceID);
+
                     break;
                 default:
                     Log.i("[SC]APP", "[SC] - Device Other State Change");
@@ -319,13 +368,15 @@ public class MainActivity extends Activity
             String value = new String(characteristic.getValue());
             Log.i("[SC]APP", "[SC] - Got Value: "+ value);
 
-            textView1.append("[SC] - Got Value: "+ value+"\n\n");
+            //Can't update UI from background thread...
+           // textView1.append("[SC] - Got Value: "+ value+"\n\n");
          //   NotifyScoreboard(new String(characteristic.getValue()));
         }
 
         public void NotifyScoreboard(String value)
         {
-            textView1.append("[SC] - Got Value: "+ value+"\n\n");
+            //Can't update UI from background thread...
+           // textView1.append("[SC] - Got Value: "+ value+"\n\n");
         }
     };
 
@@ -408,9 +459,9 @@ public class MainActivity extends Activity
     protected void onPause()
     {
         super.onPause();
-        if (mBluetoothAdapter != null && mBluetoothAdapter.isEnabled()) {
+       /* if (mBluetoothAdapter != null && mBluetoothAdapter.isEnabled()) {
             scanLeDevice(false);
-        }
+        }*/
     }
 
     @Override

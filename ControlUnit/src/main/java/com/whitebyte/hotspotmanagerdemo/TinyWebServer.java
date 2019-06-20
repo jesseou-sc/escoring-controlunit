@@ -522,7 +522,8 @@ public class TinyWebServer extends Thread {
         String content="";
         try{
             File ifile=new File(fileName);
-            if(ifile.exists()){
+            if(ifile.exists())
+            {
                 FileInputStream fis = new FileInputStream(fileName);
                 byte[] buffer = new byte[10];
                 StringBuilder sb = new StringBuilder();
@@ -532,13 +533,14 @@ public class TinyWebServer extends Thread {
                 }
                 fis.close();
                 content = sb.toString();
-            }else{
+            }
+            else{
                 pageNotFound();
                 return content;
             }
         }catch(Exception er){
-            pageNotFound();
-            return "";
+           // pageNotFound();
+            return er.getMessage();
         }
         return content;
     }
@@ -586,6 +588,8 @@ public class TinyWebServer extends Thread {
         boolean isIndexFound=false;
         try{
             File file=new File(WEB_DIR_PATH);
+            String physicalPath = file.getAbsolutePath();
+            System.out.println(physicalPath);
             if(file.isDirectory()){
                 File[] allFiles=file.listFiles();
                 for (File allFile : allFiles) {
